@@ -122,7 +122,31 @@ class LisbonVoice:
             except Exception:
                 self._speech_queue.put(speech_text)
 
-    def listen(self, phrase_time_limit: int = 10, timeout: int = 6) -> Optional[str]:
+    @staticmethod
+    def get_best_microphone_index() -> Optional[int]:
+        """Automatically selects the best physical microphone, avoiding dead virtual devices like Iriun."""
+        try:
+            import speech_recognition as sr
+            mics = sr.Microphone.list_microphone_names()
+            # 1. First priority: Realtek Microphone Array
+            for i, name in enumerate(mics):
+                nl = name.lower()
+                if "iriun" in nl or "virtual" in nl or "mapper" in nl:
+                    continue
+                if "realtek" in nl and ("array" in nl or "mic" in nl):
+                    return i
+            # 2. Second priority: Any physical microphone
+            for i, name in enumerate(mics):
+                nl = name.lower()
+                if "iriun" in nl or "virtual" in nl or "mapper" in nl or "stereo mix" in nl:
+                    continue
+                if "mic" in nl or "audio" in nl:
+                    return i
+            return None
+        except Exception:
+            return None
+
+    def listen(self, phrase_time_limit: int = 10, timeout: int = 8, device_index: Optional[int] = None) -> Optional[str]:
         """Listens from the microphone and transcribes user speech to text."""
         try:
             import speech_recognition as sr
@@ -130,14 +154,16 @@ class LisbonVoice:
             return None
 
         recognizer = sr.Recognizer()
-        recognizer.energy_threshold = 300
+        recognizer.energy_threshold = 200
         recognizer.dynamic_energy_threshold = True
 
+        if device_index is None:
+            device_index = self.get_best_microphone_index()
+
         try:
-            with sr.Microphone() as source:
-                recognizer.adjust_for_ambient_noise(source, duration=0.6)
+            with sr.Microphone(device_index=device_index) as source:
+                recognizer.adjust_for_ambient_noise(source, duration=0.4)
                 audio = recognizer.listen(source, timeout=timeout, phrase_time_limit=phrase_time_limit)
-                # Transcribe speech
                 text = recognizer.recognize_google(audio)
                 return text.strip()
         except sr.WaitTimeoutError:
