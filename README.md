@@ -55,9 +55,10 @@ LISBON is not a tool you use. It's a presence that runs alongside your life.
 ## 🗺️ Planned Features
 
 ### Phase 1 — Core Butler (Foundation)
+- [x] Personal memory & context engine
+- [x] Life goals tracker & daily check-ins
+- [x] Interactive Butler Terminal & Daily Briefing
 - [ ] Voice-first interaction (always listening)
-- [ ] Personal memory & context engine
-- [ ] Life goals tracker & daily check-ins
 
 ### Phase 2 — Life Integrations
 - [ ] Email access & smart drafting (Gmail / Outlook)
@@ -66,8 +67,26 @@ LISBON is not a tool you use. It's a presence that runs alongside your life.
 
 ### Phase 3 — Intelligence Layer
 - [ ] Internet search with smart summarization
-- [ ] Offline fallback mode
+- [x] Offline fallback rule engine
 - [ ] Proactive alerts & life nudges
+
+---
+
+## 🚀 Quick Start
+
+Launch the interactive Butler Terminal:
+```bash
+# Double-click run_lisbon.bat or run:
+python src/lisbon/main.py
+
+# Instant daily briefing:
+python src/lisbon/main.py --briefing
+```
+
+Run test suite:
+```bash
+python -m pytest tests/test_lisbon.py
+```
 
 ---
 
