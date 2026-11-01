@@ -1,8 +1,8 @@
 {
   "user": {
     "name": "Samar",
+    "callsign": "Boss",
     "role": "Master",
-    "callsign": "Sir",
     "timezone": "Asia/Kolkata",
     "occupation": "2nd-Year Computer Science Student & Software Builder",
     "academics": {

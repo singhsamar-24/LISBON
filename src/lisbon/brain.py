@@ -2,6 +2,8 @@
 
 import json
 import os
+import random
+import re
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -69,7 +71,7 @@ class LisbonBrain:
 
     @property
     def master_name(self) -> str:
-        return self.profile.get("user", {}).get("name", "Samar")
+        return self.profile.get("user", {}).get("callsign") or self.profile.get("user", {}).get("name", "Samar")
 
     @property
     def butler_name(self) -> str:
@@ -206,6 +208,7 @@ class LisbonBrain:
                 "model": "llama3.2:3b",
                 "prompt": prompt,
                 "stream": False,
+                "keep_alive": "1h",
                 "options": {
                     "temperature": 0.75,
                     "top_p": 0.9,
@@ -217,7 +220,7 @@ class LisbonBrain:
                 data=payload,
                 headers={"Content-Type": "application/json"},
             )
-            with urllib.request.urlopen(req, timeout=8.0) as resp:
+            with urllib.request.urlopen(req, timeout=20.0) as resp:
                 data = json.loads(resp.read().decode("utf-8"))
                 reply = data.get("response", "").strip()
                 if reply:
@@ -325,6 +328,18 @@ class LisbonBrain:
                 + "\n".join([f"• {f}" for f in focus])
                 + f"\n\nTell me which area you would like to push forward right now, {self.master_name}."
             )
+
+        # Name / Call-sign change
+        name_match = re.search(r"\b(?:call me|address me as)\s+([a-zA-Z0-9_-]+)", msg)
+        if name_match:
+            new_title = name_match.group(1).title()
+            self.profile.setdefault("user", {})["callsign"] = new_title
+            try:
+                with open(self.profile_path, "w", encoding="utf-8") as f:
+                    json.dump(self.profile, f, indent=2)
+            except Exception:
+                pass
+            return f"You got it, {new_title}. From now on, you're the {new_title}. What are we tackling next?"
 
         # Voice commands / feedback
         if any(w in msg for w in ["speak", "voice", "talk to me"]):
