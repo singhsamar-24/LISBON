@@ -97,7 +97,7 @@ class LisbonVoice:
             import pygame
             import tempfile
 
-            voice_name = self.voice_id or "en-GB-RyanNeural"
+            voice_name = self.voice_id or "en-US-AvaNeural"
 
             async def _synth():
                 tts = edge_tts.Communicate(text, voice_name)
@@ -197,11 +197,12 @@ class LisbonVoice:
     def get_available_voices(self) -> List[dict]:
         """Returns list of neural voices and installed system TTS voices."""
         neural_voices = [
-            {"id": "en-GB-RyanNeural", "name": "Ryan (British Butler / Jarvis)", "type": "Neural HD"},
-            {"id": "en-US-GuyNeural", "name": "Guy (Casual American Tech Partner)", "type": "Neural HD"},
-            {"id": "en-US-ChristopherNeural", "name": "Christopher (Warm & Sophisticated)", "type": "Neural HD"},
-            {"id": "en-IN-PrabhatNeural", "name": "Prabhat (Indian English Male)", "type": "Neural HD"},
-            {"id": "en-GB-SoniaNeural", "name": "Sonia (British Female Butler)", "type": "Neural HD"},
+            {"id": "en-US-AvaNeural", "name": "Ava (Soft, Warm & Modern Female)", "type": "Neural HD (Default)"},
+            {"id": "en-US-EmmaNeural", "name": "Emma (Gentle & Conversational Female)", "type": "Neural HD"},
+            {"id": "en-IN-NeerjaExpressiveNeural", "name": "Neerja (Warm Indian English Female)", "type": "Neural HD"},
+            {"id": "en-GB-SoniaNeural", "name": "Sonia (Soft British Female)", "type": "Neural HD"},
+            {"id": "en-GB-RyanNeural", "name": "Ryan (British Gentleman / Jarvis)", "type": "Neural HD"},
+            {"id": "en-US-GuyNeural", "name": "Guy (Casual American Tech Bro)", "type": "Neural HD"},
         ]
         res = list(neural_voices)
         try:

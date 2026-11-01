@@ -37,7 +37,7 @@
       "default_enabled": true,
       "rate": 180,
       "volume": 0.95,
-      "preferred_voice": "en-GB-RyanNeural"
+      "preferred_voice": "en-US-AvaNeural"
     }
   },
   "current_focus": [
