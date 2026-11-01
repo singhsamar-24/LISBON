@@ -58,7 +58,10 @@ LISBON is not a tool you use. It's a presence that runs alongside your life.
 - [x] Personal memory & context engine
 - [x] Life goals tracker & daily check-ins
 - [x] Interactive Butler Terminal & Daily Briefing
-- [ ] Voice-first interaction (always listening)
+- [x] Voice synthesis & microphone listening (TTS & STT)
+- [x] Multi-session conversation history & episodic recall
+- [x] Automated personal knowledge learner
+- [x] Human persona & strategic empathy engine
 
 ### Phase 2 — Life Integrations
 - [ ] Email access & smart drafting (Gmail / Outlook)
@@ -82,6 +85,15 @@ python src/lisbon/main.py
 # Instant daily briefing:
 python src/lisbon/main.py --briefing
 ```
+
+Interactive Butler Commands:
+- `voice on` / `voice off` — Toggle spoken voice responses aloud
+- `listen` or `mic` — Activate microphone to speak directly to LISBON
+- `history` — View past conversation turns and topics
+- `search-history <query>` — Search through all past conversations
+- `goals` — Render life goals & milestone progress table
+- `memory` — View your known personal context bank
+- `briefing` — Generate instant comprehensive briefing
 
 Run test suite:
 ```bash

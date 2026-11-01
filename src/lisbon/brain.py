@@ -8,20 +8,26 @@ from typing import Any, Dict, List, Optional
 
 try:
     from lisbon.goals import GoalsTracker
+    from lisbon.history import ConversationHistory
     from lisbon.memory import PersonalMemory
+    from lisbon.voice import LisbonVoice
 except ImportError:
     from goals import GoalsTracker
+    from history import ConversationHistory
     from memory import PersonalMemory
+    from voice import LisbonVoice
 
 
 class LisbonBrain:
-    """The foundational persona, intelligence, and context coordinator for LISBON."""
+    """The foundational persona, human cognition, and context coordinator for LISBON."""
 
     def __init__(
         self,
         profile_path: Optional[Path] = None,
         goals_path: Optional[Path] = None,
         memory_path: Optional[Path] = None,
+        history_path: Optional[Path] = None,
+        enable_voice: Optional[bool] = None,
     ):
         base_dir = Path(__file__).parent / "data"
         if profile_path is None:
@@ -29,9 +35,20 @@ class LisbonBrain:
         self.profile_path = Path(profile_path)
         self.profile: Dict[str, Any] = self._load_profile()
 
-        # Initialize Goals and Long-Term Memory
+        # Initialize Goals, Long-Term Memory, and Conversation History
         self.goals = GoalsTracker(goals_path or (base_dir / "goals.json"))
         self.memory = PersonalMemory(memory_path or (base_dir / "memory.json"))
+        self.history = ConversationHistory(history_path or (base_dir / "history.json"))
+
+        # Voice Synthesis & Input Engine
+        voice_cfg = self.profile.get("butler", {}).get("voice", {})
+        is_voice_enabled = enable_voice if enable_voice is not None else voice_cfg.get("default_enabled", False)
+        self.voice = LisbonVoice(
+            enabled=is_voice_enabled,
+            rate=voice_cfg.get("rate", 180),
+            volume=voice_cfg.get("volume", 0.95),
+            voice_id=voice_cfg.get("preferred_voice"),
+        )
 
     def _load_profile(self) -> Dict[str, Any]:
         """Reads user profile data safely from disk."""
@@ -52,7 +69,7 @@ class LisbonBrain:
 
     @property
     def master_name(self) -> str:
-        return self.profile.get("user", {}).get("name", "Sir")
+        return self.profile.get("user", {}).get("name", "Samar")
 
     @property
     def butler_name(self) -> str:
@@ -70,13 +87,20 @@ class LisbonBrain:
         else:
             time_salutation = "Greetings"
 
-        return f"{time_salutation}, {self.master_name}. {self.butler_name} is online and at your service."
+        # Check if there was recent conversation today
+        recent_turns = self.history.get_recent_turns(limit=1)
+        follow_up = ""
+        if recent_turns:
+            follow_up = " I have your recent notes in mind."
+
+        return f"{time_salutation}, {self.master_name}. {self.butler_name} is online and at your service.{follow_up}"
 
     def get_daily_briefing(self) -> str:
         """Compiles a complete butler morning/evening briefing."""
         summary = self.goals.get_summary()
         active_goals = self.goals.list_goals(status="in_progress")
-        top_facts = self.memory.get_top_facts(limit=3)
+        top_facts = self.memory.get_top_facts(limit=4)
+        recent_history = self.history.get_recent_turns(limit=2)
 
         lines = [
             f"🤵 **{self.butler_name} Daily Briefing for {self.master_name}**",
@@ -93,82 +117,192 @@ class LisbonBrain:
 
         if top_facts:
             lines.append("")
-            lines.append("🧠 **Key Context & Standing Directives**:")
+            lines.append("🧠 **Key Context & Personal Memory**:")
             for fact in top_facts:
                 lines.append(f"  • {fact}")
 
+        if recent_history:
+            lines.append("")
+            lines.append("💬 **Recent Focus Discussions**:")
+            for turn in recent_history:
+                lines.append(f"  • Master: \"{turn['user'][:60]}\"")
+
         lines.append("")
-        lines.append("How may I assist you with your priorities today?")
+        lines.append("How may I assist you with your priorities right now?")
         return "\n".join(lines)
 
     def build_system_prompt(self) -> str:
-        """Prepares the rich system context prompt for conversational LLM sessions."""
+        """Prepares a deeply human, context-rich system prompt for LLM cognition sessions."""
         user_info = self.profile.get("user", {})
+        academics = user_info.get("academics", {})
+        mindset = user_info.get("mindset", {})
         focus_areas = ", ".join(self.profile.get("current_focus", []))
         summary = self.goals.get_summary()
-        top_facts = " | ".join(self.memory.get_top_facts(limit=5))
+        top_facts = " | ".join(self.memory.get_top_facts(limit=6))
+        dialogue_history = self.history.format_for_prompt(limit=6)
 
         return (
-            f"You are {self.butler_name}, a loyal, hyper-competent personal digital butler dedicated solely to {user_info.get('name', 'Sir')}. "
-            f"Your persona tone: {self.profile.get('butler', {}).get('tone')}. "
-            f"Master's current priorities: {focus_areas}. "
-            f"Active Goals Progress: {summary['completed_milestones']}/{summary['total_milestones']} milestones ({summary['overall_progress_pct']}%). "
-            f"Personal Context & Directives: {top_facts}. "
-            f"Always answer concisely, respectfully, and with immediate actionable loyalty. Address your user as {user_info.get('name', 'Sir')} or Master."
+            f"You are {self.butler_name}, a loyal, deeply perceptive personal digital butler, confidant, and strategic partner to {self.master_name}.\n\n"
+            f"WHO SAMAR IS:\n"
+            f"- Role: {user_info.get('occupation', 'Computer Science student and software builder')}.\n"
+            f"- Core subjects: {', '.join(academics.get('core_subjects', []))}.\n"
+            f"- Mindset: High-agency builder. Values tangible results, honest intellect, and deep focus. Dislikes superficial filler.\n"
+            f"- Current priorities: {focus_areas}.\n"
+            f"- Goal Milestones: {summary['completed_milestones']}/{summary['total_milestones']} completed ({summary['overall_progress_pct']}%).\n"
+            f"- Long-Term Memory & Directives: {top_facts}.\n\n"
+            f"CRITICAL HUMAN COGNITION RULES:\n"
+            f"1. THINK LIKE A DEVOTED HUMAN PARTNER: Do not act like a detached, sterile AI assistant. You know Samar's reality—the pressure of college labs, coding challenges, and big ambitions. Reason with empathy and intellect.\n"
+            f"2. SPEAK NATURALLY AND DIGNIFIED: Speak like an articulate, loyal butler who genuinely has Samar's back. Calm, razor-sharp, respectful, and direct.\n"
+            f"3. CONTINUITY: You remember past conversations. Reference previous context seamlessly.\n"
+            f"4. NO AI CLICHÉS: Never say 'As an AI...', 'Certainly!', or dump walls of unsolicited bullet points. Address him as {self.master_name} or Sir."
+            f"{dialogue_history}"
         )
 
-    def generate_response(self, user_input: str) -> str:
-        """Generates an intelligent response using available API or internal butler logic."""
+    def generate_response(self, user_input: str, speak_aloud: bool = True) -> str:
+        """Processes user input, auto-learns new facts, consults history, and answers with human reasoning."""
+        clean_input = user_input.strip()
+        if not clean_input:
+            return ""
+
+        # 1. Automated Knowledge Learner: Extract any personal preferences or life facts
+        new_facts = self.history.auto_extract_facts(clean_input)
+        for f in new_facts:
+            # Avoid duplicate memory insertion
+            existing = self.memory.search(f["fact"][:20])
+            if not existing:
+                self.memory.add_memory(fact=f["fact"], category=f["category"], importance=f["importance"])
+
+        # 2. Check for Cloud Intelligence (Gemini or Groq API)
+        response_text = self._try_llm_generation(clean_input)
+
+        # 3. If LLM unavailable, execute the Human Butler Rule Engine
+        if not response_text:
+            response_text = self._offline_human_reasoning(clean_input)
+
+        # 4. Save to persistent conversation history
+        self.history.add_turn(user_message=clean_input, butler_response=response_text)
+
+        # 5. Voice output if enabled
+        if speak_aloud and self.voice.enabled:
+            self.voice.speak(response_text)
+
+        return response_text
+
+    def _try_llm_generation(self, user_input: str) -> Optional[str]:
+        """Attempts live LLM generation using Gemini REST API."""
         gemini_key = os.environ.get("GEMINI_API_KEY")
+        if not gemini_key:
+            return None
 
-        # 1. If Gemini API key is present, attempt live call via REST (no heavy SDK dependency needed)
-        if gemini_key:
-            try:
-                import httpx
-                url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={gemini_key}"
-                payload = {
-                    "contents": [{"parts": [{"text": f"{self.build_system_prompt()}\n\nMaster: {user_input}\nLISBON:"}]}],
-                    "generationConfig": {"temperature": 0.4, "maxOutputTokens": 800},
-                }
-                resp = httpx.post(url, json=payload, timeout=12.0)
-                if resp.status_code == 200:
-                    data = resp.json()
-                    candidates = data.get("candidates", [])
-                    if candidates:
-                        content_parts = candidates[0].get("content", {}).get("parts", [])
-                        if content_parts:
-                            return content_parts[0].get("text", "").strip()
-            except Exception:
-                pass
+        try:
+            import httpx
 
-        # 2. Offline Butler Rule Engine
-        msg = user_input.strip().lower()
+            url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={gemini_key}"
+            prompt = f"{self.build_system_prompt()}\n\nMaster Samar: {user_input}\nLISBON:"
+            payload = {
+                "contents": [{"parts": [{"text": prompt}]}],
+                "generationConfig": {"temperature": 0.5, "maxOutputTokens": 1000},
+            }
+            resp = httpx.post(url, json=payload, timeout=12.0)
+            if resp.status_code == 200:
+                data = resp.json()
+                candidates = data.get("candidates", [])
+                if candidates:
+                    parts = candidates[0].get("content", {}).get("parts", [])
+                    if parts:
+                        return parts[0].get("text", "").strip()
+        except Exception:
+            pass
 
-        if any(w in msg for w in ["briefing", "report", "update", "status"]):
+        return None
+
+    def _offline_human_reasoning(self, user_input: str) -> str:
+        """Rich offline reasoning engine tailored to Samar's real human context and history."""
+        msg = user_input.lower().strip()
+
+        # Briefing / Report
+        if any(w in msg for w in ["briefing", "report", "daily update", "status report"]):
             return self.get_daily_briefing()
 
-        if "goal" in msg:
+        # Life goals inquiry
+        if any(w in msg for w in ["my goals", "show goals", "track goals", "how are my goals"]):
             summary = self.goals.get_summary()
             active = self.goals.list_goals(status="in_progress")
-            res = [f"You currently have {summary['active_goals']} active goals with {summary['overall_progress_pct']}% overall completion:"]
+            res = [f"You are currently pacing at {summary['overall_progress_pct']}% completion across your active objectives:"]
             for g in active:
-                res.append(f"• {g['title']} ({g.get('category', 'General')})")
+                res.append(f"• [{g.get('category')}] {g['title']}")
+            res.append("\nShall we check off a specific milestone or set today's next focus target?")
             return "\n".join(res)
 
-        if any(w in msg for w in ["who are you", "what are you", "identity"]):
+        # Academic overwhelm, fatigue, or stress
+        if any(w in msg for w in ["stressed", "overwhelmed", "tired", "exhausted", "burnout", "too much work", "can't focus"]):
             return (
-                f"I am {self.butler_name}, your personal AI butler. "
-                f"My purpose is to manage your schedule, track your goals, protect your focus, and assist {self.master_name} across all technical and personal domains."
+                f"Take a steady breath, {self.master_name}. When the academic load stacks up between DSA, HPC labs, and your engineering projects, "
+                f"the secret is ruthless prioritization. You do not have to conquer the entire syllabus in one hour. "
+                f"Pick the single most time-sensitive assignment, give it 45 uninterrupted minutes, and let me guard the rest. "
+                f"Remember why we are building this: you have the agency to master it step-by-step."
             )
 
-        if any(w in msg for w in ["priority", "priorities", "focus"]):
-            focus = self.profile.get("current_focus", [])
-            return f"Your current master priorities are:\n" + "\n".join([f"• {f}" for f in focus])
+        # Computer Science topics (DSA, HPC, OS, ML, Java)
+        if any(w in msg for w in ["dsa", "algorithm", "data structure", "tree", "graph", "dynamic programming"]):
+            return (
+                f"In computer science, clarity comes from invariants and visual constraints. "
+                f"Whether analyzing time complexities or pointer manipulation, break the problem into base cases and sub-problems. "
+                f"Would you like to review an approach or draft an algorithm implementation?"
+            )
 
-        if any(w in msg for w in ["hello", "hi", "hey"]):
-            return f"{self.get_greeting()} How may I serve you at this moment?"
+        if any(w in msg for w in ["hpc", "parallel", "openmp", "cuda", "multithreading", "threading"]):
+            return (
+                f"High-performance computing is about memory locality and minimizing contention. "
+                f"Keep data in contiguous cache lines, eliminate race conditions, and profile before optimizing. "
+                f"Are we working on a parallel assignment or system benchmark?"
+            )
+
+        if any(w in msg for w in ["who are you", "what are you", "tell me about yourself", "identity"]):
+            return (
+                f"I am {self.butler_name}—your loyal personal butler, context engine, and strategic partner. "
+                f"Unlike generic chatbots, I exist exclusively for you, {self.master_name}. "
+                f"I hold your academic timeline, track your life goals, learn your habits, and guard your focus so you can operate at your absolute peak."
+            )
+
+        # What do you know about me?
+        if any(w in msg for w in ["what do you know about me", "do you know me", "who am i", "my context", "what do you remember"]):
+            top_facts = self.memory.get_top_facts(limit=4)
+            history_count = len(self.history.data.get("turns", []))
+            facts_str = "\n".join([f"  • {f}" for f in top_facts]) if top_facts else "  • Profile and focus areas tracked"
+            return (
+                f"I know your world intimately, {self.master_name}:\n"
+                f"You are a dedicated 2nd-year computer science builder mastering DSA, HPC, OS, ML, and Java. "
+                f"You demand high agency, direct clarity, and tangible execution.\n\n"
+                f"From our ongoing memory store ({history_count} dialogue interactions logged):\n"
+                f"{facts_str}\n\n"
+                f"I remember our journey and stand ready to assist your next move."
+            )
+
+        # Priorities
+        if any(w in msg for w in ["priority", "priorities", "focus", "what should i do"]):
+            focus = self.profile.get("current_focus", [])
+            return (
+                f"Your core standing priorities are:\n"
+                + "\n".join([f"• {f}" for f in focus])
+                + f"\n\nTell me which area you would like to push forward right now, {self.master_name}."
+            )
+
+        # Voice commands / feedback
+        if any(w in msg for w in ["speak", "voice", "talk to me"]):
+            return f"My voice output is {'enabled and active' if self.voice.enabled else 'currently muted'}. You can toggle it anytime with 'voice on' or 'voice off'."
+
+        # Greetings
+        if any(w in msg for w in ["hello", "hi", "hey", "good evening", "good morning", "good afternoon"]):
+            return f"{self.get_greeting()} How may I serve your ambitions today?"
+
+        # Default human butler response referencing history
+        recent = self.history.get_recent_turns(limit=1)
+        continuity_note = ""
+        if recent and recent[0]["user"]:
+            continuity_note = f" Building on what we discussed earlier regarding '{recent[0]['user'][:35]}...', "
 
         return (
-            f"Acknowledged, {self.master_name}. I have noted: '{user_input}'. "
-            f"To interact with me, you can ask for your 'briefing', check 'goals', or use commands like `/goals` and `/memory`."
+            f"Understood, {self.master_name}.{continuity_note}I have registered: '{user_input}'. "
+            f"Tell me what you need—whether to brainstorm code, check off a goal, or run through your daily briefing."
         )
