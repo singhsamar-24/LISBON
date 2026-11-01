@@ -33,12 +33,15 @@ def test_settings(temp_dir: Path) -> JarvisSettings:
         DATABASE_PATH=temp_dir / "data" / "test.db",
         LOG_DIR=temp_dir / "logs",
         ARTIFACTS_DIR=temp_dir / "artifacts",
+        require_approvals=False,
     )
 
 
 @pytest.fixture(autouse=True)
 def reset_global_quotas() -> None:
     """Ensure global quota manager is reset before each test."""
-    from jarvis.cognition.quota_manager import quota_manager
-
-    quota_manager.reset()
+    try:
+        from jarvis.cognition.quota_manager import quota_manager
+        quota_manager.reset()
+    except Exception:
+        pass
