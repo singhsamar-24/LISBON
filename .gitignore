@@ -16,8 +16,9 @@ coverage.xml
 *.db
 *.sqlite
 *.sqlite3
-data/
-jarvis/data/
+/data/
+/jarvis/data/
+!src/lisbon/data/
 scratch/
 **/auth/
 **/recordings/
@@ -52,4 +53,4 @@ Thumbs.db
 .vscode/
 
 # Development Resources
-skills/
+skills/

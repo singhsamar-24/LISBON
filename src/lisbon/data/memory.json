@@ -1,0 +1,25 @@
+{
+  "memories": [
+    {
+      "id": "mem-1",
+      "fact": "Master Samar is studying 2nd-year computer science with coursework in DSA, HPC, Java, OS, and ML.",
+      "category": "education",
+      "importance": 5,
+      "created_at": "2026-10-06T17:00:00Z"
+    },
+    {
+      "id": "mem-2",
+      "fact": "Prefers concise, respectful, and direct butler responses without unnecessary fluff.",
+      "category": "preferences",
+      "importance": 4,
+      "created_at": "2026-10-06T17:00:00Z"
+    },
+    {
+      "id": "mem-3",
+      "fact": "Focuses heavily on building LISBON into a dedicated, loyal personal life manager.",
+      "category": "projects",
+      "importance": 5,
+      "created_at": "2026-10-06T17:00:00Z"
+    }
+  ]
+}

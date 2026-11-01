@@ -1,0 +1,30 @@
+{
+  "goals": [
+    {
+      "id": "goal-1",
+      "title": "Master Core Computer Science Concepts",
+      "category": "Academics",
+      "status": "in_progress",
+      "target_date": "2026-12-31",
+      "milestones": [
+        {"title": "Data Structures & Algorithms in C++", "completed": true},
+        {"title": "High Performance Computing & Parallel Processing", "completed": false},
+        {"title": "Operating Systems & Memory Management", "completed": false},
+        {"title": "Machine Learning Fundamentals", "completed": false}
+      ]
+    },
+    {
+      "id": "goal-2",
+      "title": "Develop LISBON AI Butler",
+      "category": "Engineering",
+      "status": "in_progress",
+      "target_date": "2026-11-30",
+      "milestones": [
+        {"title": "Core Brain, Persona & Profile Schema", "completed": true},
+        {"title": "Life Goals Tracker & Daily Briefing Engine", "completed": true},
+        {"title": "Personal Memory & Context Store", "completed": true},
+        {"title": "Interactive Butler Terminal Interface", "completed": true}
+      ]
+    }
+  ]
+}
