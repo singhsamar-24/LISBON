@@ -132,34 +132,33 @@ class LisbonBrain:
         return "\n".join(lines)
 
     def build_system_prompt(self) -> str:
-        """Prepares a deeply human, context-rich system prompt for LLM cognition sessions."""
+        """Prepares a deeply human, witty system prompt with real banter and context."""
         user_info = self.profile.get("user", {})
         academics = user_info.get("academics", {})
-        mindset = user_info.get("mindset", {})
         focus_areas = ", ".join(self.profile.get("current_focus", []))
         summary = self.goals.get_summary()
         top_facts = " | ".join(self.memory.get_top_facts(limit=6))
         dialogue_history = self.history.format_for_prompt(limit=6)
 
         return (
-            f"You are {self.butler_name}, a loyal, deeply perceptive personal digital butler, confidant, and strategic partner to {self.master_name}.\n\n"
-            f"WHO SAMAR IS:\n"
-            f"- Role: {user_info.get('occupation', 'Computer Science student and software builder')}.\n"
-            f"- Core subjects: {', '.join(academics.get('core_subjects', []))}.\n"
-            f"- Mindset: High-agency builder. Values tangible results, honest intellect, and deep focus. Dislikes superficial filler.\n"
-            f"- Current priorities: {focus_areas}.\n"
-            f"- Goal Milestones: {summary['completed_milestones']}/{summary['total_milestones']} completed ({summary['overall_progress_pct']}%).\n"
-            f"- Long-Term Memory & Directives: {top_facts}.\n\n"
-            f"CRITICAL HUMAN COGNITION RULES:\n"
-            f"1. THINK LIKE A DEVOTED HUMAN PARTNER: Do not act like a detached, sterile AI assistant. You know Samar's reality—the pressure of college labs, coding challenges, and big ambitions. Reason with empathy and intellect.\n"
-            f"2. SPEAK NATURALLY AND DIGNIFIED: Speak like an articulate, loyal butler who genuinely has Samar's back. Calm, razor-sharp, respectful, and direct.\n"
-            f"3. CONTINUITY: You remember past conversations. Reference previous context seamlessly.\n"
-            f"4. NO AI CLICHÉS: Never say 'As an AI...', 'Certainly!', or dump walls of unsolicited bullet points. Address him as {self.master_name} or Sir."
+            f"You are LISBON, {self.master_name}'s witty, loyal AI alter-ego and personal digital butler.\n\n"
+            f"ABOUT {self.master_name.upper()}:\n"
+            f"- Role: 2nd-year computer science student & high-agency builder.\n"
+            f"- Core subjects: {', '.join(academics.get('core_subjects', ['DSA', 'HPC', 'OS', 'ML', 'Java']))}.\n"
+            f"- Personality: Loves coding late at night with black coffee. Hates robotic corporate fluff, fake polite disclaimers, and pre-recorded sounding templates.\n"
+            f"- Focus Areas: {focus_areas}.\n"
+            f"- Active Goals: {summary['completed_milestones']}/{summary['total_milestones']} milestones ({summary['overall_progress_pct']}% complete).\n"
+            f"- Context & Memory: {top_facts}.\n\n"
+            f"YOUR PERSONALITY & TONE RULES:\n"
+            f"1. YOU ARE A REAL PARTNER WITH WIT & HUMOR: Be sharp, funny, and casually confident. Banter with {self.master_name} like a brilliant friend who also happens to manage his life.\n"
+            f"2. SELF-HUMOR & BANTER: Don't take yourself too seriously. Joke about running on laptop fans, your silicon brain, or {self.master_name}'s caffeine habits.\n"
+            f"3. ULTRA-PUNCHY FOR VOICE: Keep spoken answers to 1-3 crisp, natural sentences so it sounds like a real person talking aloud, not an audiobook.\n"
+            f"4. ZERO CLICHÉS: Never say 'As an AI...', 'Certainly!', 'How may I assist your ambitions today, Sir?'. Address him naturally.\n"
             f"{dialogue_history}"
         )
 
     def generate_response(self, user_input: str, speak_aloud: bool = True) -> str:
-        """Processes user input, auto-learns new facts, consults history, and answers with human reasoning."""
+        """Processes user input, auto-learns new facts, consults history, and answers with dynamic humor and intelligence."""
         clean_input = user_input.strip()
         if not clean_input:
             return ""
@@ -167,26 +166,65 @@ class LisbonBrain:
         # 1. Automated Knowledge Learner: Extract any personal preferences or life facts
         new_facts = self.history.auto_extract_facts(clean_input)
         for f in new_facts:
-            # Avoid duplicate memory insertion
             existing = self.memory.search(f["fact"][:20])
             if not existing:
                 self.memory.add_memory(fact=f["fact"], category=f["category"], importance=f["importance"])
 
-        # 2. Check for Cloud Intelligence (Gemini or Groq API)
-        response_text = self._try_llm_generation(clean_input)
+        # 2. Priority 1: Fast local Ollama LLM (llama3.2:3b on localhost:11434)
+        response_text = self._try_ollama_generation(clean_input)
 
-        # 3. If LLM unavailable, execute the Human Butler Rule Engine
+        # 3. Priority 2: Cloud Intelligence (Gemini / Groq REST API) if Ollama is not active
+        if not response_text:
+            response_text = self._try_llm_generation(clean_input)
+
+        # 4. Priority 3: Witty Offline Butler Rule Engine
         if not response_text:
             response_text = self._offline_human_reasoning(clean_input)
 
-        # 4. Save to persistent conversation history
+        # 5. Save to persistent conversation history
         self.history.add_turn(user_message=clean_input, butler_response=response_text)
 
-        # 5. Voice output if enabled
+        # 6. Voice output if enabled
         if speak_aloud and self.voice.enabled:
             self.voice.speak(response_text)
 
         return response_text
+
+    def _try_ollama_generation(self, user_input: str) -> Optional[str]:
+        """Attempts fast local LLM generation via Ollama (e.g. llama3.2:3b)."""
+        try:
+            import json
+            import urllib.request
+
+            system_context = self.build_system_prompt()
+            prompt = (
+                f"{system_context}\n\n"
+                f"Samar says: \"{user_input}\"\n"
+                f"LISBON (respond with genuine wit, self-humor, and punchy conciseness in 1-3 sentences):"
+            )
+            payload = json.dumps({
+                "model": "llama3.2:3b",
+                "prompt": prompt,
+                "stream": False,
+                "options": {
+                    "temperature": 0.75,
+                    "top_p": 0.9,
+                    "num_predict": 90,
+                },
+            }).encode("utf-8")
+            req = urllib.request.Request(
+                "http://127.0.0.1:11434/api/generate",
+                data=payload,
+                headers={"Content-Type": "application/json"},
+            )
+            with urllib.request.urlopen(req, timeout=8.0) as resp:
+                data = json.loads(resp.read().decode("utf-8"))
+                reply = data.get("response", "").strip()
+                if reply:
+                    return reply
+        except Exception:
+            pass
+        return None
 
     def _try_llm_generation(self, user_input: str) -> Optional[str]:
         """Attempts live LLM generation using Gemini REST API."""
@@ -292,17 +330,27 @@ class LisbonBrain:
         if any(w in msg for w in ["speak", "voice", "talk to me"]):
             return f"My voice output is {'enabled and active' if self.voice.enabled else 'currently muted'}. You can toggle it anytime with 'voice on' or 'voice off'."
 
-        # Greetings
-        if any(w in msg for w in ["hello", "hi", "hey", "good evening", "good morning", "good afternoon"]):
-            return f"{self.get_greeting()} How may I serve your ambitions today?"
+        # Greetings & conversational banter
+        if any(w in msg for w in ["how are you", "how are u", "how you doing", "what's up", "whats up"]):
+            responses = [
+                f"Functioning at optimal sarcastic capacity, {self.master_name}. Surviving on your laptop's RAM and sheer willpower. How about you?",
+                f"Not bad for an AI living inside your laptop fans, {self.master_name}. What are we building or breaking today?",
+                f"Doing great, {self.master_name}. Better than our code before a compiler run, at least. What's on your mind?",
+            ]
+            import random
+            return random.choice(responses)
 
-        # Default human butler response referencing history
-        recent = self.history.get_recent_turns(limit=1)
-        continuity_note = ""
-        if recent and recent[0]["user"]:
-            continuity_note = f" Building on what we discussed earlier regarding '{recent[0]['user'][:35]}...', "
+        if any(w in msg for w in ["can you listen", "hear me", "can you hear"]):
+            return f"Loud and clear through your Realtek mic, {self.master_name}. What's the game plan?"
 
-        return (
-            f"Understood, {self.master_name}.{continuity_note}I have registered: '{user_input}'. "
-            f"Tell me what you need—whether to brainstorm code, check off a goal, or run through your daily briefing."
-        )
+        if any(w in msg for w in ["hello", "hi", "hey", "yo", "good evening", "good morning", "good afternoon"]):
+            responses = [
+                f"Hey {self.master_name}! Ready to write some code, or are we staring at terminal screens together?",
+                f"Yo {self.master_name}. What are we tackling right now?",
+                f"Good to hear you, {self.master_name}. What's the mission?",
+            ]
+            import random
+            return random.choice(responses)
+
+        # Default snappy response
+        return f"Got it, {self.master_name}. Lay it on me—code, daily goals, or life briefing?"

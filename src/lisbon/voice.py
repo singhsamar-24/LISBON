@@ -54,22 +54,7 @@ class LisbonVoice:
             self._worker_thread.start()
 
     def _tts_worker(self) -> None:
-        """Worker loop that handles speech requests in sequence."""
-        engine = None
-        try:
-            import pyttsx3
-
-            engine = pyttsx3.init()
-            engine.setProperty("rate", self.rate)
-            engine.setProperty("volume", self.volume)
-            if self.voice_id:
-                try:
-                    engine.setProperty("voice", self.voice_id)
-                except Exception:
-                    pass
-        except Exception:
-            engine = None
-
+        """Worker loop that handles speech requests in sequence using neural TTS with SAPI fallback."""
         while not self._stop_event.is_set():
             try:
                 text = self._speech_queue.get(timeout=0.2)
@@ -79,26 +64,65 @@ class LisbonVoice:
             if text is None:  # Sentinel value to exit
                 break
 
-            if engine and text:
-                try:
-                    with self._engine_lock:
-                        # Re-apply properties in case they changed
-                        engine.setProperty("rate", self.rate)
-                        engine.setProperty("volume", self.volume)
-                        engine.say(text)
-                        engine.runAndWait()
-                except Exception:
-                    # Fallback to SAPI via win32com if pyttsx3 encounters a COM loop issue
-                    try:
-                        import win32com.client
+            if text:
+                self._play_speech(text)
 
-                        speaker = win32com.client.Dispatch("SAPI.SpVoice")
-                        speaker.Rate = 0  # Normal rate
-                        speaker.Volume = int(self.volume * 100)
-                        speaker.Speak(text)
-                    except Exception:
-                        pass
             self._speech_queue.task_done()
+
+    def _play_speech(self, text: str) -> None:
+        """Plays speech using neural edge-tts with automatic SAPI fallback."""
+        if not text:
+            return
+
+        # 1. Try Natural Neural TTS (edge-tts + pygame)
+        if self._play_neural_tts(text):
+            return
+
+        # 2. Fallback to Windows SAPI
+        try:
+            import win32com.client
+
+            speaker = win32com.client.Dispatch("SAPI.SpVoice")
+            speaker.Volume = int(self.volume * 100)
+            speaker.Speak(text)
+        except Exception:
+            pass
+
+    def _play_neural_tts(self, text: str) -> bool:
+        """Generates and plays human-like neural voice audio via edge-tts and pygame."""
+        try:
+            import asyncio
+            import edge_tts
+            import os
+            import pygame
+            import tempfile
+
+            voice_name = self.voice_id or "en-GB-RyanNeural"
+
+            async def _synth():
+                tts = edge_tts.Communicate(text, voice_name)
+                with tempfile.NamedTemporaryFile(delete=False, suffix=".mp3") as f:
+                    path = f.name
+                await tts.save(path)
+                return path
+
+            mp3_path = asyncio.run(_synth())
+
+            with self._engine_lock:
+                if not pygame.mixer.get_init():
+                    pygame.mixer.init()
+                pygame.mixer.music.load(mp3_path)
+                pygame.mixer.music.play()
+                while pygame.mixer.music.get_busy() and not self._stop_event.is_set():
+                    pygame.time.Clock().tick(20)
+                pygame.mixer.music.unload()
+                try:
+                    os.unlink(mp3_path)
+                except Exception:
+                    pass
+            return True
+        except Exception:
+            return False
 
     def speak(self, text: str, async_mode: bool = True) -> None:
         """Speaks the provided text aloud if voice is enabled."""
@@ -112,15 +136,7 @@ class LisbonVoice:
         if async_mode:
             self._speech_queue.put(speech_text)
         else:
-            # Synchronous direct speech via SAPI
-            try:
-                import win32com.client
-
-                speaker = win32com.client.Dispatch("SAPI.SpVoice")
-                speaker.Volume = int(self.volume * 100)
-                speaker.Speak(speech_text)
-            except Exception:
-                self._speech_queue.put(speech_text)
+            self._play_speech(speech_text)
 
     @staticmethod
     def get_best_microphone_index() -> Optional[int]:
@@ -179,18 +195,25 @@ class LisbonVoice:
         return self.enabled
 
     def get_available_voices(self) -> List[dict]:
-        """Returns list of all installed system TTS voices."""
+        """Returns list of neural voices and installed system TTS voices."""
+        neural_voices = [
+            {"id": "en-GB-RyanNeural", "name": "Ryan (British Butler / Jarvis)", "type": "Neural HD"},
+            {"id": "en-US-GuyNeural", "name": "Guy (Casual American Tech Partner)", "type": "Neural HD"},
+            {"id": "en-US-ChristopherNeural", "name": "Christopher (Warm & Sophisticated)", "type": "Neural HD"},
+            {"id": "en-IN-PrabhatNeural", "name": "Prabhat (Indian English Male)", "type": "Neural HD"},
+            {"id": "en-GB-SoniaNeural", "name": "Sonia (British Female Butler)", "type": "Neural HD"},
+        ]
+        res = list(neural_voices)
         try:
             import pyttsx3
 
             engine = pyttsx3.init()
             voices = engine.getProperty("voices")
-            res = []
             for v in voices:
-                res.append({"id": v.id, "name": v.name, "languages": getattr(v, "languages", [])})
-            return res
+                res.append({"id": v.id, "name": f"{v.name} (Offline SAPI)", "type": "SAPI Local"})
         except Exception:
-            return []
+            pass
+        return res
 
     def set_voice(self, voice_id: str) -> None:
         """Sets the active TTS voice ID."""
